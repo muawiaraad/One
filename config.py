@@ -1,4 +1,4 @@
-# إعدادات البوت بالعربية 100%
-اسم_البوت = "روليت فيرن
-دردشة_الدعم = @bronoIQ
-
+BOT_TOKEN = "8827353783:AAFcK3IM8G1Q4oWhcLhyHAyLUa__cLXmJIQ"
+ADMIN_ID = 7221322787
+DB_NAME = "roulette_fern.db"
+SUPPORT_CHAT = "@bronoIQ"

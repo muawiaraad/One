@@ -1,20 +1,17 @@
 import asyncio
+import sqlite3
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import sqlite3
-import os
-from datetime import datetime
 
-# إعدادات البيئة (يمكن تعديلها مباشرة هنا بدلاً من ملف config.py)
-BOT_TOKEN = 8827353783:AAFcK3IM8G1Q4oWhcLhyHAyLUa__cLXmJIQ  # ضع توكين البوت هنا
-ADMIN_ID = 7221322787  # ضع ID المشرف هنا
+from config import ADMIN_ID, BOT_TOKEN, DB_NAME, SUPPORT_CHAT
+
 
 # إعداد قاعدة البيانات
 def init_db():
-    conn = sqlite3.connect('roulette_fern.db')
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
@@ -57,6 +54,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 # حالات آلة الحالة (FSM)
 class DrawCreationStates(StatesGroup):
     waiting_for_title = State()
@@ -65,18 +63,21 @@ class DrawCreationStates(StatesGroup):
     waiting_for_winners_count = State()
     waiting_for_group_link = State()
 
+
 # دوال مساعدة
 def format_text(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
+
 
 def welcome_message() -> str:
     return (
         "<b>أهلاً بك في روليت فيرن...</b>\n\n"
         "هذا البوت سيساعدك في إدارة السحوبات والمسابقات باحترافية!\n\n"
-        "<blockquote>تم انشاء البوت بواسطه برونو @bronoIQ</blockquote>"
+        f"<blockquote>تم انشاء البوت بواسطه برونو {SUPPORT_CHAT}</blockquote>"
     )
 
-def main_menu() -> InlineKeyboardMarkup:
+
+def main_menu() -> types.InlineKeyboardMarkup:
     builder = types.InlineKeyboardBuilder()
     buttons = [
         [types.InlineKeyboardButton(text="🎯 انشاء روليت", callback_data="create_roulette")],
@@ -89,33 +90,40 @@ def main_menu() -> InlineKeyboardMarkup:
         [types.InlineKeyboardButton(text="🔐 الخصوصية", callback_data="privacy")],
         [types.InlineKeyboardButton(text="🛠 الدعم الفني", callback_data="support")],
         [types.InlineKeyboardButton(text="🔔 ذكرني إذا فزت", callback_data="remind_wins")],
-        [types.InlineKeyboardButton(text="🎯 أنشئ مسابقة", callback_data="create_draw")]
+        [types.InlineKeyboardButton(text="🎯 أنشئ مسابقة", callback_data="create_draw")],
     ]
     builder.add(*[button for row in buttons for button in row])
     return builder.as_markup()
 
+
 # معالجات الأوامر
 async def start_command(message: types.Message):
-    conn = sqlite3.connect('roulette_fern.db')
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('INSERT OR IGNORE INTO users (id, username) VALUES (?, ?)',
-                  (message.from_user.id, message.from_user.username))
+    cursor.execute(
+        "INSERT OR IGNORE INTO users (id, username) VALUES (?, ?)",
+        (message.from_user.id, message.from_user.username),
+    )
     conn.commit()
     conn.close()
 
     await message.answer(
         welcome_message(),
         reply_markup=main_menu(),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
 
+
 async def groupid_command(message: types.Message):
-    if message.chat.type in ['group', 'supergroup']:
+    if message.chat.type in ["group", "supergroup"]:
         await message.answer(
-            format_text(f"معرف المجموعة: <code>{message.chat.id}</code>\n\n"
-                       "ارسل هذا المعرف لي في المحادثة الخاصة للربط"),
-            parse_mode="HTML"
+            format_text(
+                f"معرف المجموعة: <code>{message.chat.id}</code>\n\n"
+                "ارسل هذا المعرف لي في المحادثة الخاصة للربط"
+            ),
+            parse_mode="HTML",
         )
+
 
 # معالجات الأزرار
 async def handle_callback(callback: types.CallbackQuery):
@@ -123,9 +131,11 @@ async def handle_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(
             format_text("يرجى إدخال عنوان المسابقة"),
             reply_markup=types.ReplyKeyboardRemove(),
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
-        await DrawCreationStates.waiting_for_title.set()
+        await callback.answer()
+        await callback.bot.set_state(callback.from_user.id, DrawCreationStates.waiting_for_title)
+
 
 # معالجات حالات آلة الحالة
 async def process_draw_title(message: types.Message, state: FSMContext):
@@ -133,19 +143,23 @@ async def process_draw_title(message: types.Message, state: FSMContext):
     await state.set_state(DrawCreationStates.waiting_for_description)
     await message.answer(format_text("يرجى إدخال وصف المسابقة"))
 
+
 async def process_draw_description(message: types.Message, state: FSMContext):
     await state.update_data(description=message.text)
     await state.set_state(DrawCreationStates.waiting_for_conditions)
     await message.answer(
         format_text("اختر شروط الدخول للمسابقة"),
-        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="📁 قناة الشرط", callback_data="condition_channel")],
-            [types.InlineKeyboardButton(text="⚡ تعزيز قناة", callback_data="condition_boost")],
-            [types.InlineKeyboardButton(text="تخطي", callback_data="skip_conditions")],
-            [types.InlineKeyboardButton(text="رجوع 🔙", callback_data="back_to_menu")]
-        ]),
-        parse_mode="HTML"
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [types.InlineKeyboardButton(text="📁 قناة الشرط", callback_data="condition_channel")],
+                [types.InlineKeyboardButton(text="⚡ تعزيز قناة", callback_data="condition_boost")],
+                [types.InlineKeyboardButton(text="تخطي", callback_data="skip_conditions")],
+                [types.InlineKeyboardButton(text="رجوع 🔙", callback_data="back_to_menu")],
+            ]
+        ),
+        parse_mode="HTML",
     )
+
 
 async def main():
     init_db()
@@ -160,6 +174,7 @@ async def main():
     dp.callback_query.register(handle_callback)
 
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

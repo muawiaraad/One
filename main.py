@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 # إعدادات البيئة (يمكن تعديلها مباشرة هنا بدلاً من ملف config.py)
-BOT_TOKEN = "8827353783:AAFcK3IM8G1Q4oWhcLhyHAyLUa__cLXmJIQ"  # ضع توكين البوت هنا
+BOT_TOKEN = 8827353783:AAFcK3IM8G1Q4oWhcLhyHAyLUa__cLXmJIQ  # ضع توكين البوت هنا
 ADMIN_ID = 7221322787  # ضع ID المشرف هنا
 
 # إعداد قاعدة البيانات
